@@ -9,8 +9,9 @@ import QuickStatsCard from "@/components/ui/quick-stats-card"
 import HabitList from "@/components/habits/habit-list"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Plus } from "lucide-react"
+import { Plus, BrainCircuit } from "lucide-react"
 import DailyLineChart from "@/components/ui/daily-line-chart"
+import { getAiInsights } from "@/app/actions"
 
 interface Habit {
   id: string
@@ -38,6 +39,8 @@ export default function HomePage() {
   const [previousMonthCompletions, setPreviousMonthCompletions] = useState<HabitCompletion[]>([])
   const [loading, setLoading] = useState(true)
   const [potAiEnabled, setPotAiEnabled] = useState(false)
+  const [aiInsight, setAiInsight] = useState("")
+  const [aiLoading, setAiLoading] = useState(true)
   const now = new Date()
   const today = now.toISOString().split("T")[0]
   const currentYear = now.getFullYear()
@@ -88,6 +91,30 @@ export default function HomePage() {
 
     loadData()
   }, [user, authLoading, thisMonth, prevMonth, router])
+
+  useEffect(() => {
+    const fetchInsight = async () => {
+      if (!loading && potAiEnabled && user) {
+        setAiLoading(true)
+        const progressPayload = JSON.stringify({
+          stats,
+          habits,
+          todayProgress,
+          completedToday,
+          totalHabits,
+        })
+        const result = await getAiInsights(progressPayload)
+        if (result.insight) {
+          setAiInsight(result.insight)
+        } else {
+          setAiInsight("Could not get an insight right now, but you're doing great!")
+        }
+        setAiLoading(false)
+      }
+    }
+
+    fetchInsight()
+  }, [loading, potAiEnabled, user, stats, habits, todayProgress, completedToday, totalHabits])
 
   const handleToggleHabit = async (habitId: string, completed: boolean) => {
     const userId = user?.id || "demo-user-123"
@@ -336,8 +363,25 @@ export default function HomePage() {
                 </div>
                 {potAiEnabled ? (
                   <>
-                    <h3 className="text-lg font-bold text-blue-800">Hey there, habit hero! 🌟</h3>
+                    <h3 className="text-lg font-bold text-blue-800">Hey there, {user?.user_metadata.display_name || "habit hero"}! 🌟</h3>
                     <div className="space-y-4 text-sm text-blue-700">
+                      <div className="bg-white/70 rounded-lg p-4">
+                        <h4 className="font-semibold text-blue-800 mb-2 flex items-center">
+                          <BrainCircuit className="h-4 w-4 mr-2" />
+                          POT's Insight
+                        </h4>
+                        <div className="text-sm text-blue-900">
+                          {aiLoading ? (
+                            <div className="flex items-center">
+                              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-800 mr-2"></div>
+                              POT is analyzing your progress...
+                            </div>
+                          ) : (
+                            <p>{aiInsight}</p>
+                          )}
+                        </div>
+                      </div>
+
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div className="bg-white/70 rounded-lg p-4">
                           <h4 className="font-semibold text-blue-800 mb-2">📊 Your Progress</h4>
@@ -364,42 +408,6 @@ export default function HomePage() {
                             <strong>Energy Level:</strong>{" "}
                             {todayProgress > 75 ? "High 🚀" : todayProgress > 50 ? "Good 👍" : "Building 🌱"}
                           </p>
-                        </div>
-                      </div>
-
-                      <div className="bg-white/70 rounded-lg p-4">
-                        <h4 className="font-semibold text-blue-800 mb-2">AI Insights</h4>
-                        <div className="space-y-2 text-xs">
-                          <p>
-                            • <strong>Pattern Recognition:</strong> You perform best on{" "}
-                            {["Monday", "Tuesday", "Wednesday"][Math.floor(Math.random() * 3)]}s with{" "}
-                            {Math.floor(Math.random() * 20 + 80)}% completion rate
-                          </p>
-                          <p>
-                            • <strong>Streak Prediction:</strong>{" "}
-                            {stats.currentStreak > 3
-                              ? "High probability of reaching 7-day streak!"
-                              : "Focus on consistency for better streaks"}
-                          </p>
-                          <p>
-                            • <strong>Habit Synergy:</strong> Your morning habits boost afternoon completion by{" "}
-                            {Math.floor(Math.random() * 15 + 25)}%
-                          </p>
-                        </div>
-                      </div>
-
-                      <div className="bg-white/70 rounded-lg p-4">
-                        <h4 className="font-semibold text-blue-800 mb-2">Personalized Tips</h4>
-                        <div className="space-y-1 text-xs">
-                          {stats.currentStreak === 0 && <p>🌱 Start with your easiest habit to build momentum</p>}
-                          {stats.currentStreak > 0 && stats.currentStreak < 7 && (
-                            <p>🔥 You're building great momentum! Focus on consistency</p>
-                          )}
-                          {stats.currentStreak >= 7 && (
-                            <p>🏆 Amazing streak! Consider adding a new challenging habit</p>
-                          )}
-                          {stats.perfectDays >= 3 && <p>🌟 Your dedication is inspiring! Keep up the perfect days</p>}
-                          {todayProgress < 50 && <p>⏰ Still time today! Even one more habit makes a difference</p>}
                         </div>
                       </div>
 
